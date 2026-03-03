@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a1a2e">
+  <meta name="description" content="Guess the headlines before the hangman is complete!">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="RSS Hangman">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" sizes="192x192" href="icons/icon-192.svg">
+  <link rel="apple-touch-icon" href="icons/icon-192.svg">
+  <title>RSS Hangman</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="app-header">
+      <button id="btn-back" class="header-btn hidden" aria-label="Back">
+        <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+      </button>
+      <h1 id="app-title">RSS Hangman</h1>
+      <button id="btn-settings" class="header-btn" aria-label="Settings">
+        <svg viewBox="0 0 24 24" width="24" height="24"><path fill="currentColor" d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58a.49.49 0 0 0 .12-.61l-1.92-3.32a.49.49 0 0 0-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54a.48.48 0 0 0-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96a.49.49 0 0 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58a.49.49 0 0 0-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6A3.6 3.6 0 1 1 12 8.4a3.6 3.6 0 0 1 0 7.2z"/></svg>
+      </button>
+    </header>
+
+    <!-- Game Screen -->
+    <main id="screen-game" class="screen active">
+      <div id="game-container">
+        <!-- Hangman Drawing -->
+        <div id="hangman-area">
+          <canvas id="hangman-canvas"></canvas>
+          <div id="wrong-count">
+            <span id="wrong-current">0</span> / <span id="wrong-max">6</span>
+          </div>
+        </div>
+
+        <!-- Headline Display -->
+        <div id="headline-area">
+          <div id="headline-source" class="headline-meta hidden"></div>
+          <div id="headline-display"></div>
+        </div>
+
+        <!-- Keyboard -->
+        <div id="keyboard-area">
+          <div id="keyboard"></div>
+        </div>
+
+        <!-- Game Status Overlay -->
+        <div id="game-overlay" class="hidden">
+          <div id="overlay-content">
+            <div id="overlay-icon"></div>
+            <h2 id="overlay-title"></h2>
+            <p id="overlay-headline"></p>
+            <p id="overlay-source" class="headline-meta"></p>
+            <a id="overlay-link" href="#" target="_blank" rel="noopener noreferrer"></a>
+            <div id="overlay-stats"></div>
+            <button id="btn-next" class="btn-primary">Next Headline</button>
+          </div>
+        </div>
+
+        <!-- Loading / No Headlines State -->
+        <div id="game-loading" class="hidden">
+          <div class="spinner"></div>
+          <p>Fetching headlines...</p>
+        </div>
+
+        <div id="game-empty" class="hidden">
+          <div class="empty-state">
+            <svg viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <h2>No Headlines Available</h2>
+            <p>Add RSS feeds in Settings to start playing!</p>
+            <button id="btn-go-settings" class="btn-primary">Open Settings</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Bar -->
+      <div id="game-bottom-bar">
+        <div id="score-display">
+          <span class="score-label">Score</span>
+          <span id="score-value" class="score-number">0</span>
+        </div>
+        <button id="btn-reveal-source" class="skip-btn" aria-label="Reveal source (costs 1 wrong guess)" title="Reveal source (costs 1 wrong guess)">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+          <span>Source</span>
+        </button>
+        <button id="btn-skip" class="skip-btn" aria-label="Skip headline" title="Skip this headline">
+          <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+          <span>Skip</span>
+        </button>
+        <div id="difficulty-display">
+          <span class="diff-label">Level</span>
+          <span id="diff-value" class="diff-badge">Easy</span>
+        </div>
+        <div id="streak-display">
+          <span class="streak-label">Streak</span>
+          <span id="streak-value" class="score-number">0</span>
+        </div>
+      </div>
+    </main>
+
+    <!-- Settings Screen -->
+    <main id="screen-settings" class="screen">
+      <div id="settings-container">
+        <section class="settings-section">
+          <h2>RSS Feeds</h2>
+          <p class="settings-desc">Add RSS feed URLs to source headlines for the game.</p>
+          <div id="feed-list"></div>
+          <div id="add-feed-form">
+            <input type="url" id="feed-url-input" placeholder="https://example.com/rss" autocomplete="off">
+            <button id="btn-add-feed" class="btn-primary">Add Feed</button>
+          </div>
+          <div id="feed-status" class="hidden"></div>
+          <div id="feed-share-actions">
+            <button id="btn-force-fetch" class="btn-secondary" title="Re-fetch all feeds now">⟳ Refresh Feeds</button>
+            <button id="btn-export-feeds" class="btn-secondary" title="Copy feed list to clipboard">Export Feeds</button>
+            <button id="btn-import-feeds" class="btn-secondary" title="Import a feed list from clipboard">Import Feeds</button>
+          </div>
+          <textarea id="feed-import-area" class="hidden" rows="4" placeholder="Paste feed list here (one URL per line)..."></textarea>
+          <button id="btn-import-confirm" class="btn-primary hidden">Import These Feeds</button>
+        </section>
+
+        <section class="settings-section">
+          <h2>Quick Add</h2>
+          <p class="settings-desc">Popular RSS feeds you can add with one tap.</p>
+          <div id="preset-feeds"></div>
+        </section>
+
+        <section class="settings-section">
+          <h2>Exclude Words</h2>
+          <p class="settings-desc">Headlines containing any of these strings will be skipped.</p>
+          <div id="exclude-list"></div>
+          <div id="add-exclude-form">
+            <input type="text" id="exclude-input" placeholder="e.g. LIVE -" autocomplete="off">
+            <button id="btn-add-exclude" class="btn-primary">Add</button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>Difficulty</h2>
+          <p class="settings-desc">Controls how many words in the headline are hidden.</p>
+          <div id="difficulty-selector">
+            <button class="diff-btn" data-difficulty="easy">
+              <span class="diff-name">Easy</span>
+              <span class="diff-desc">~30% hidden</span>
+            </button>
+            <button class="diff-btn" data-difficulty="medium">
+              <span class="diff-name">Medium</span>
+              <span class="diff-desc">~50% hidden</span>
+            </button>
+            <button class="diff-btn" data-difficulty="hard">
+              <span class="diff-name">Hard</span>
+              <span class="diff-desc">~70% hidden</span>
+            </button>
+            <button class="diff-btn" data-difficulty="expert">
+              <span class="diff-name">Expert</span>
+              <span class="diff-desc">100% hidden</span>
+            </button>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>Game</h2>
+          <div class="setting-row">
+            <label for="max-wrong">Max Wrong Guesses</label>
+            <select id="max-wrong">
+              <option value="4">4 (Brutal)</option>
+              <option value="5">5 (Hard)</option>
+              <option value="6" selected>6 (Normal)</option>
+              <option value="8">8 (Forgiving)</option>
+              <option value="10">10 (Easy)</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <button id="btn-reset-stats" class="btn-danger">Reset Statistics</button>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <script src="js/hangman-canvas.js"></script>
+  <script src="js/rss.js"></script>
+  <script src="js/game.js"></script>
+  <script src="js/settings.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
