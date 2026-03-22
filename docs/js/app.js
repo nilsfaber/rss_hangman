@@ -10,6 +10,7 @@
   const game = new Game();
   let settings;
   let confettiCleanupTimer;
+  let streakResetTimer;
 
   // --- DOM References ---
   const screens = {
@@ -538,7 +539,31 @@
   }
 
   function updateBottomBar() {
-    els.streakValue.textContent = game.streak;
+    const nextStreak = Number(game.streak) || 0;
+    const currentStreak = Number(els.streakValue.textContent) || 0;
+
+    clearTimeout(streakResetTimer);
+
+    if (currentStreak > 0 && nextStreak === 0) {
+      els.streakValue.classList.remove('outcome-won', 'outcome-lost', 'streak-reset-in', 'streak-reset-out');
+      void els.streakValue.offsetWidth;
+      els.streakValue.classList.add('streak-reset-out');
+
+      streakResetTimer = setTimeout(() => {
+        els.streakValue.textContent = '0';
+        els.streakValue.classList.remove('streak-reset-out');
+        void els.streakValue.offsetWidth;
+        els.streakValue.classList.add('streak-reset-in');
+
+        streakResetTimer = setTimeout(() => {
+          els.streakValue.classList.remove('streak-reset-in');
+        }, 320);
+      }, 340);
+      return;
+    }
+
+    els.streakValue.classList.remove('streak-reset-out', 'streak-reset-in');
+    els.streakValue.textContent = String(nextStreak);
   }
 
   function renderWrongBar() {
