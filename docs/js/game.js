@@ -2,6 +2,7 @@
  * Game - Core hangman game logic.
  * Manages headline parsing, letter revealing, win/lose conditions, streaks.
  */
+
 class Game {
   constructor() {
     this.headline = '';
