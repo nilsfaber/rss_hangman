@@ -1,6 +1,6 @@
 /**
  * Game - Core hangman game logic.
- * Manages headline parsing, letter revealing, win/lose conditions, scoring.
+ * Manages headline parsing, letter revealing, win/lose conditions, streaks.
  */
 class Game {
   constructor() {
@@ -15,14 +15,17 @@ class Game {
     this.maxWrong = 6;
     this.difficulty = 'easy';  // easy, medium, hard, expert
     this.state = 'idle';       // idle, playing, won, lost
-    this.score = 0;
     this.streak = 0;
     this.gamesPlayed = 0;
     this.gamesWon = 0;
     this.usedHeadlines = new Set();
+    this.allowSpecialChars = false;
+    this.whitelistWords = new Set();
 
     this._loadStats();
     this._loadUsedHeadlines();
+    this._loadAllowSpecialChars();
+    this._loadWhitelist();
   }
 
   /**
@@ -79,7 +82,7 @@ class Game {
 
   /**
    * Guess a letter
-   * Returns { correct, letter, revealed[], gameState, wrongCount }
+   * Returns { correct, letter, revealed[], gameState }
    */
   guessLetter(letter) {
     letter = letter.toLowerCase();
@@ -118,9 +121,7 @@ class Game {
       correct: isCorrect,
       letter,
       revealed: isCorrect ? this._getRevealedPositions(letter) : [],
-      gameState: this.state,
-      wrongCount: this.wrongLetters.size,
-      correctCount: this.correctLetters.size
+      gameState: this.state
     };
   }
 
@@ -132,8 +133,8 @@ class Game {
     this.hiddenIndices.forEach(idx => {
       const word = this.words[idx];
       for (const ch of word.text) {
-        if (/[a-z]/i.test(ch)) {
-          letters.add(ch.toLowerCase());
+        if (/[a-z\u00C0-\u024F]/i.test(ch)) {
+          letters.add(this._normalizeChar(ch).toLowerCase());
         }
       }
     });
@@ -166,7 +167,7 @@ class Game {
     this.hiddenIndices.forEach(wordIdx => {
       const word = this.words[wordIdx];
       for (let i = 0; i < word.text.length; i++) {
-        if (word.text[i].toLowerCase() === letter) {
+        if (this._normalizeChar(word.text[i]).toLowerCase() === letter) {
           positions.push({ wordIdx, charIdx: i });
         }
       }
@@ -174,12 +175,22 @@ class Game {
     return positions;
   }
 
+  /** Normalize a character: strip accents/diacritics to base ASCII letter. */
+  _normalizeChar(ch) {
+    return ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
+  /** Check if a string contains any accented/special letters. */
+  _hasSpecialChars(str) {
+    return str !== str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  }
+
   /**
    * Parse headline into word objects
    */
   _parseHeadline(headline) {
-    // Split keeping punctuation attached to words
-    const tokens = headline.match(/[\w'-]+|[^\w\s]+|\s+/g) || [];
+    // Split keeping punctuation attached to words (including accented chars)
+    const tokens = headline.match(/[\w\u00C0-\u024F'-]+|[^\w\s\u00C0-\u024F]+|\s+/g) || [];
     this.words = [];
 
     tokens.forEach(token => {
@@ -189,8 +200,8 @@ class Game {
       }
       this.words.push({
         text: token,
-        isWord: /[a-zA-Z]/.test(token), // contains at least one letter
-        isPunct: /^[^\w\s]+$/.test(token)
+        isWord: /[a-zA-Z\u00C0-\u024F]/.test(token), // contains at least one letter (incl accented)
+        isPunct: /^[^\w\s\u00C0-\u024F]+$/.test(token)
       });
     });
   }
@@ -203,6 +214,7 @@ class Game {
     const wordIndices = this.words
       .map((w, i) => ({ w, i }))
       .filter(({ w }) => w.isWord && w.text.length >= 2) // only hide real words with 2+ chars
+      .filter(({ w }) => !this.whitelistWords.has(w.text.toLowerCase())) // never mask whitelisted words
       .map(({ i }) => i);
 
     if (wordIndices.length === 0) {
@@ -218,16 +230,6 @@ class Game {
   }
 
   /**
-   * Check if a letter at a position in a word should be revealed
-   */
-  isLetterRevealed(wordIdx, charIdx) {
-    if (!this.hiddenIndices.includes(wordIdx)) return true; // not hidden
-    const ch = this.words[wordIdx].text[charIdx];
-    if (!/[a-zA-Z]/.test(ch)) return true; // punctuation/numbers always shown
-    return this.correctLetters.has(ch.toLowerCase());
-  }
-
-  /**
    * Get unused headline from a pool.
    * Accepts array of {title, link} objects or plain strings.
    * Returns {title, link} or null.
@@ -239,9 +241,14 @@ class Game {
     );
 
     // Apply exclude filter
-    const filtered = rssService
+    let filtered = rssService
       ? items.filter(h => !rssService.isExcluded(h.title))
       : items;
+
+    // Filter out headlines with special characters if not allowed
+    if (!this.allowSpecialChars) {
+      filtered = filtered.filter(h => !this._hasSpecialChars(h.title));
+    }
 
     // Deduplicate by title
     const seen = new Set();
@@ -266,19 +273,10 @@ class Game {
   }
 
   _onWin() {
-    // Score: base points + bonus for fewer wrong guesses + streak bonus
-    const basePoints = 10;
-    const diffMultiplier = { easy: 1, medium: 1.5, hard: 2, expert: 3 }[this.difficulty];
-    const wrongPenalty = this.wrongLetters.size * 2;
-    const streakBonus = Math.min(this.streak * 2, 20);
-
-    const points = Math.max(1, Math.round((basePoints - wrongPenalty + streakBonus) * diffMultiplier));
-    this.score += points;
     this.streak++;
     this.gamesPlayed++;
     this.gamesWon++;
     this._saveStats();
-    return points;
   }
 
   _onLose() {
@@ -288,7 +286,6 @@ class Game {
   }
 
   resetStats() {
-    this.score = 0;
     this.streak = 0;
     this.gamesPlayed = 0;
     this.gamesWon = 0;
@@ -299,7 +296,6 @@ class Game {
 
   _saveStats() {
     const stats = {
-      score: this.score,
       streak: this.streak,
       gamesPlayed: this.gamesPlayed,
       gamesWon: this.gamesWon
@@ -311,7 +307,6 @@ class Game {
     try {
       const stats = JSON.parse(localStorage.getItem('hangman_stats'));
       if (stats) {
-        this.score = stats.score || 0;
         this.streak = stats.streak || 0;
         this.gamesPlayed = stats.gamesPlayed || 0;
         this.gamesWon = stats.gamesWon || 0;
@@ -402,6 +397,73 @@ class Game {
       return null;
     }
   }
+
+  // ── Special characters toggle ─────────────────────────────────
+
+  setAllowSpecialChars(enabled) {
+    this.allowSpecialChars = !!enabled;
+    localStorage.setItem('hangman_allowSpecialChars', JSON.stringify(this.allowSpecialChars));
+  }
+
+  _loadAllowSpecialChars() {
+    try {
+      const val = JSON.parse(localStorage.getItem('hangman_allowSpecialChars'));
+      if (typeof val === 'boolean') this.allowSpecialChars = val;
+    } catch (e) { /* ignore */ }
+  }
+
+  // ── Whitelist (never-mask) words ──────────────────────────────
+
+  _loadWhitelist() {
+    try {
+      const data = JSON.parse(localStorage.getItem('hangman_whitelist'));
+      if (Array.isArray(data)) {
+        this.whitelistWords = new Set(data.map(w => w.toLowerCase()));
+        return;
+      }
+    } catch (e) { /* ignore */ }
+    // First load — use defaults
+    this.whitelistWords = new Set(Game.DEFAULT_WHITELIST);
+    this._saveWhitelist();
+  }
+
+  _saveWhitelist() {
+    localStorage.setItem('hangman_whitelist', JSON.stringify([...this.whitelistWords]));
+  }
+
+  addWhitelistWord(word) {
+    word = word.trim().toLowerCase();
+    if (!word) return false;
+    if (this.whitelistWords.has(word)) return false;
+    this.whitelistWords.add(word);
+    this._saveWhitelist();
+    return true;
+  }
+
+  removeWhitelistWord(word) {
+    this.whitelistWords.delete(word.toLowerCase());
+    this._saveWhitelist();
+  }
+
+  resetWhitelist() {
+    this.whitelistWords = new Set(Game.DEFAULT_WHITELIST);
+    this._saveWhitelist();
+  }
 }
+
+// ── Default whitelist of common words (EN + NL) ─────────────────
+Game.DEFAULT_WHITELIST = [
+  // English
+  'the','a','an','and','or','but','in','on','at','to','for','of','is','it',
+  'he','she','her','his','we','they','that','this','with','not','no','too',
+  'so','has','had','was','can','will','its','are','be','by','as','do','if',
+  'my','up','all','out','one','new','from','who','get','got','say','how',
+  'may','into',
+  // Dutch
+  'de','het','een','en','of','maar','op','aan','te','voor','van','hij',
+  'zij','haar','zijn','wij','dat','dit','met','niet','nee','ook','zo',
+  'heeft','had','kan','zal','er','om','al','uit','bij','nog','wel','als',
+  'dan','nu','tot','hoe','meer','naar','over','na','wat','wie'
+];
 
 window.Game = Game;

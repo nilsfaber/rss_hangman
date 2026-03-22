@@ -3,7 +3,7 @@
  * Caches app shell for offline use, network-first for external requests.
  */
 
-const CACHE_NAME = 'rss-hangman-v15';
+const CACHE_NAME = 'rss-hangman-v55';
 const APP_SHELL = [
   './',
   'index.html',
@@ -12,9 +12,7 @@ const APP_SHELL = [
   'js/game.js',
   'js/rss.js',
   'js/settings.js',
-  'js/hangman-canvas.js',
   'manifest.json',
-  'icons/icon-192.svg',
   'icons/icon-512.svg'
 ];
 
@@ -43,9 +41,9 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // External requests (CORS proxies, RSS feeds): network-only
+  // External requests (CORS proxies, RSS feeds, fonts): network-only
   if (url.origin !== self.location.origin) {
-    event.respondWith(fetch(request));
+    event.respondWith(fetch(request).catch(() => new Response('', { status: 408 })));
     return;
   }
 

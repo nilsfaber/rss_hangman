@@ -3,25 +3,20 @@
  * client-side using the browser's built-in DOMParser for XML parsing.
  *
  * Feeds are fetched through a self-hosted Cloudflare Worker CORS proxy.
- * Set the worker URL in RSSService.PROXY_URL below after deploying.
+ * Set the proxy URL in the Game settings screen.
  */
 class RSSService {
   /** Fetch timeout in ms */
   static FETCH_TIMEOUT = 8000;
 
-  /**
-   * Cloudflare Worker proxy URL.
-   * After deploying the worker, replace this with your worker URL, e.g.:
-   *   'https://rss-hangman-proxy.<your-subdomain>.workers.dev'
-   */
-  static PROXY_URL = 'https://rss-hangman-proxy.rss-hangman.workers.dev';
-
   constructor() {
     this.feeds = [];       // [{ url, name, headlineCount }]
     this.headlines = [];   // cached headlines
     this.excludeStrings = []; // strings to exclude from headlines
+    this.proxyUrl = '';    // CORS proxy worker URL
     this._loadFeeds();
     this._loadExcludeStrings();
+    this._loadProxyUrl();
   }
 
   static get PRESET_FEEDS() {
@@ -50,8 +45,8 @@ class RSSService {
     const timer = setTimeout(() => ac.abort(), RSSService.FETCH_TIMEOUT);
     try {
       // Route through the CORS proxy worker
-      const fetchUrl = RSSService.PROXY_URL
-        ? `${RSSService.PROXY_URL}?url=${encodeURIComponent(url)}`
+      const fetchUrl = this.proxyUrl
+        ? `${this.proxyUrl}?url=${encodeURIComponent(url)}`
         : url;
 
       const resp = await fetch(fetchUrl, {
@@ -243,10 +238,6 @@ class RSSService {
     return [];
   }
 
-  hasFeed(url) {
-    return this.feeds.some(f => f.url === url);
-  }
-
   // ── Exclude strings ────────────────────────────────────────────
 
   addExcludeString(str) {
@@ -282,6 +273,17 @@ class RSSService {
     } catch (e) { /* ignore */ }
   }
 
+  // ── Proxy URL ──────────────────────────────────────────────────────
+
+  setProxyUrl(url) {
+    this.proxyUrl = url;
+    localStorage.setItem('hangman_proxyUrl', url);
+  }
+
+  _loadProxyUrl() {
+    this.proxyUrl = localStorage.getItem('hangman_proxyUrl') || '';
+  }
+
   // ── Persistence ────────────────────────────────────────────────────
 
   _getCachedHeadlines() {
@@ -300,8 +302,17 @@ class RSSService {
 
   _loadFeeds() {
     try {
-      const feeds = JSON.parse(localStorage.getItem('hangman_feeds'));
-      if (Array.isArray(feeds)) this.feeds = feeds;
+      const raw = localStorage.getItem('hangman_feeds');
+      if (raw !== null) {
+        const feeds = JSON.parse(raw);
+        if (Array.isArray(feeds)) this.feeds = feeds;
+      } else {
+        // First-time user: seed with preset feeds
+        this.feeds = RSSService.PRESET_FEEDS.map(p => ({
+          url: p.url, name: p.name, headlineCount: 0
+        }));
+        this._saveFeeds();
+      }
     } catch (e) { /* ignore */ }
     this.headlines = this._getCachedHeadlines();
   }

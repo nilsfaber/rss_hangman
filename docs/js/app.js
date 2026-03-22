@@ -8,7 +8,6 @@
   // --- Instances ---
   const rssService = new RSSService();
   const game = new Game();
-  let hangmanCanvas;
   let settings;
 
   // --- DOM References ---
@@ -23,24 +22,17 @@
     btnNext: document.getElementById('btn-next'),
     btnSkip: document.getElementById('btn-skip'),
     btnGoSettings: document.getElementById('btn-go-settings'),
-    appTitle: document.getElementById('app-title'),
     headlineDisplay: document.getElementById('headline-display'),
     headlineSource: document.getElementById('headline-source'),
     keyboard: document.getElementById('keyboard'),
-    gameOverlay: document.getElementById('game-overlay'),
-    overlayIcon: document.getElementById('overlay-icon'),
-    overlayTitle: document.getElementById('overlay-title'),
-    overlayHeadline: document.getElementById('overlay-headline'),
-    overlayStats: document.getElementById('overlay-stats'),
+    resultIcon: document.getElementById('result-icon'),
+    resultActions: document.getElementById('result-actions'),
     gameLoading: document.getElementById('game-loading'),
     gameEmpty: document.getElementById('game-empty'),
-    scoreValue: document.getElementById('score-value'),
-    diffValue: document.getElementById('diff-value'),
+    gameNoProxy: document.getElementById('game-no-proxy'),
     streakValue: document.getElementById('streak-value'),
-    wrongCurrent: document.getElementById('wrong-current'),
-    wrongMax: document.getElementById('wrong-max'),
+    wrongBar: document.getElementById('wrong-bar'),
     btnRevealSource: document.getElementById('btn-reveal-source'),
-    hangmanCanvas: document.getElementById('hangman-canvas')
   };
 
   // --- Keyboard Layout ---
@@ -52,7 +44,6 @@
 
   // --- Initialization ---
   function init() {
-    hangmanCanvas = new HangmanCanvas(els.hangmanCanvas);
     settings = new Settings(rssService, game, onFeedsChanged);
 
     buildKeyboard();
@@ -60,7 +51,9 @@
     updateBottomBar();
 
     // Initial load
-    if (rssService.feeds.length === 0) {
+    if (!rssService.proxyUrl) {
+      showNoProxyState();
+    } else if (rssService.feeds.length === 0) {
       showEmptyState();
     } else {
       // Try to restore an in-progress game first
@@ -85,14 +78,7 @@
     });
 
     if (name === 'settings') {
-      els.btnSettings.classList.add('hidden');
-      els.btnBack.classList.remove('hidden');
-      els.appTitle.textContent = 'Settings';
       settings.render();
-    } else {
-      els.btnSettings.classList.remove('hidden');
-      els.btnBack.classList.add('hidden');
-      els.appTitle.textContent = 'RSS Hangman';
     }
   }
 
@@ -102,7 +88,9 @@
     els.btnBack.addEventListener('click', () => {
       showScreen('game');
       // If feeds exist but no game is running, load headlines
-      if (rssService.feeds.length > 0 && game.state === 'idle') {
+      if (!rssService.proxyUrl) {
+        showNoProxyState();
+      } else if (rssService.feeds.length > 0 && game.state === 'idle') {
         loadAndStartGame();
       }
     });
@@ -110,6 +98,13 @@
     els.btnSkip.addEventListener('click', () => skipRound());
     els.btnRevealSource.addEventListener('click', () => revealSource());
     els.btnGoSettings.addEventListener('click', () => showScreen('settings'));
+
+    // Configure Proxy button — go to settings and scroll to Game section
+    document.getElementById('btn-go-proxy-settings').addEventListener('click', () => {
+      showScreen('settings');
+      const gameSection = document.getElementById('proxy-url');
+      if (gameSection) gameSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
 
     // Physical keyboard
     document.addEventListener('keydown', (e) => {
@@ -164,6 +159,10 @@
 
   // --- Game Flow ---
   async function loadAndStartGame() {
+    if (!rssService.proxyUrl) {
+      showNoProxyState();
+      return;
+    }
     showLoadingState();
 
     try {
@@ -192,32 +191,23 @@
       return;
     }
 
-    hangmanCanvas.setMaxStages(game.maxWrong);
-    hangmanCanvas.reset();
-    resetKeyboard();
-    hideOverlay();
-
     const gameData = game.startGame(article.title, article.link, article.source);
+    renderWrongBar();
+    resetKeyboard();
+    hideResult();
     els.headlineSource.textContent = '';
     els.headlineSource.classList.add('hidden');
     els.btnRevealSource.disabled = false;
-    els.btnRevealSource.classList.remove('used');
+    els.btnRevealSource.classList.remove('hidden');
     renderHeadline(gameData);
     updateBottomBar();
-    updateWrongCount();
   }
 
   /** Restore a previously in-progress game after page refresh. */
   function restoreRound(gameData) {
-    hangmanCanvas.setMaxStages(game.maxWrong);
-    hangmanCanvas.reset();
+    renderWrongBar();
     resetKeyboard();
-    hideOverlay();
-
-    // Re-draw hangman stages for wrong guesses
-    for (let i = 0; i < game.wrongLetters.size; i++) {
-      hangmanCanvas.addStage();
-    }
+    hideResult();
 
     // Mark already-guessed keys on keyboard
     game.guessedLetters.forEach(letter => {
@@ -230,13 +220,12 @@
     if (game.wrongLetters.has('_source')) {
       els.headlineSource.textContent = game.articleSource || 'Unknown';
       els.headlineSource.classList.remove('hidden');
-      els.btnRevealSource.disabled = true;
-      els.btnRevealSource.classList.add('used');
+      els.btnRevealSource.classList.add('hidden');
     } else {
       els.headlineSource.textContent = '';
       els.headlineSource.classList.add('hidden');
+      els.btnRevealSource.classList.remove('hidden');
       els.btnRevealSource.disabled = false;
-      els.btnRevealSource.classList.remove('used');
     }
 
     renderHeadline(gameData);
@@ -247,7 +236,6 @@
     });
 
     updateBottomBar();
-    updateWrongCount();
   }
 
   function nextRound() {
@@ -260,6 +248,10 @@
   }
 
   function skipRound() {
+    if (game.state === 'won' || game.state === 'lost') {
+      nextRound();
+      return;
+    }
     if (game.state !== 'playing') return;
     game.streak = 0;
     game._saveStats();
@@ -269,18 +261,16 @@
 
   function revealSource() {
     if (game.state !== 'playing') return;
-    if (els.btnRevealSource.classList.contains('used')) return;
+    if (els.btnRevealSource.classList.contains('hidden')) return;
 
-    // Show the source
+    // Replace button with source text
     els.headlineSource.textContent = game.articleSource || 'Unknown';
     els.headlineSource.classList.remove('hidden');
-    els.btnRevealSource.disabled = true;
-    els.btnRevealSource.classList.add('used');
+    els.btnRevealSource.classList.add('hidden');
 
     // Cost: one wrong guess
     game.wrongLetters.add('_source');
-    hangmanCanvas.addStage();
-    updateWrongCount();
+    renderWrongBar();
 
     // Check if this causes a loss
     if (game.wrongLetters.size >= game.maxWrong) {
@@ -303,8 +293,7 @@
     if (result.correct) {
       revealLetters(result.revealed);
     } else {
-      hangmanCanvas.addStage();
-      updateWrongCount();
+      renderWrongBar();
       // Shake headline on wrong guess
       els.headlineDisplay.classList.add('shake');
       setTimeout(() => els.headlineDisplay.classList.remove('shake'), 400);
@@ -321,16 +310,34 @@
   function renderHeadline(gameData) {
     els.headlineDisplay.innerHTML = '';
 
+    let shownGroup = null; // accumulates consecutive shown words
+
+    function flushShown() {
+      if (shownGroup) {
+        els.headlineDisplay.appendChild(shownGroup);
+        shownGroup = null;
+      }
+    }
+
     gameData.words.forEach((word, wordIdx) => {
       const isHidden = gameData.hiddenIndices.includes(wordIdx);
 
-      if (word.isPunct) {
-        const span = document.createElement('span');
-        span.className = 'letter-slot punctuation';
-        span.textContent = word.text;
-        els.headlineDisplay.appendChild(span);
+      if (word.isPunct || !isHidden) {
+        // Accumulate into a shared shown group
+        if (!shownGroup) {
+          shownGroup = document.createElement('span');
+          shownGroup.className = 'word-group';
+        }
+        // Add space before non-punctuation words (unless group is empty)
+        if (!word.isPunct && shownGroup.textContent.length > 0) {
+          shownGroup.textContent += ' ';
+        }
+        shownGroup.textContent += word.text;
         return;
       }
+
+      // Hidden word — flush any accumulated shown text first
+      flushShown();
 
       const group = document.createElement('span');
       group.className = 'word-group';
@@ -341,14 +348,12 @@
         span.dataset.wordIdx = wordIdx;
         span.dataset.charIdx = i;
 
-        if (!isHidden || !/[a-zA-Z]/.test(ch)) {
-          // Shown letter or non-alpha in hidden word
+        if (!/[a-zA-Z\u00C0-\u024F]/.test(ch)) {
           span.className = 'letter-slot shown-letter';
           span.textContent = ch;
         } else {
-          // Hidden letter
           span.className = 'letter-slot hidden-letter';
-          span.textContent = ch; // stored but hidden via CSS (color: transparent)
+          span.textContent = ch;
         }
 
         group.appendChild(span);
@@ -356,6 +361,8 @@
 
       els.headlineDisplay.appendChild(group);
     });
+
+    flushShown();
   }
 
   function revealLetters(positions) {
@@ -387,8 +394,14 @@
     updateBottomBar();
     game.clearGameState();
 
+    // Turn wrong-bar segments green on win
+    els.wrongBar.querySelectorAll('.wrong-segment.filled').forEach(s => s.classList.add('won'));
+
+    // Reveal all letters as won
+    revealAllLetters('revealed');
+
     setTimeout(() => {
-      showOverlay(true);
+      showResult(true);
     }, 500);
   }
 
@@ -399,60 +412,32 @@
     game.clearGameState();
 
     setTimeout(() => {
-      showOverlay(false);
+      showResult(false);
     }, 800);
   }
 
-  function showOverlay(won) {
-    els.overlayIcon.textContent = won ? '🎉' : '💀';
-    els.overlayTitle.textContent = won ? 'You Got It!' : 'Game Over';
-    els.overlayTitle.className = won ? 'win' : 'lose';
-    els.overlayHeadline.textContent = game.headline;
+  function showResult(won) {
+    // Show icon above headline (absolutely positioned)
+    els.resultIcon.textContent = won ? '🎉' : '💀';
+    els.resultIcon.classList.remove('hidden');
 
-    // Show source in overlay
-    const overlaySource = document.getElementById('overlay-source');
-    overlaySource.textContent = game.articleSource || '';
-
-    // Always show source on game end
+    // Show source as clickable link under headline
     if (game.articleSource) {
       els.headlineSource.textContent = game.articleSource;
+      if (game.articleLink) {
+        els.headlineSource.href = game.articleLink;
+      }
       els.headlineSource.classList.remove('hidden');
+      els.btnRevealSource.classList.add('hidden');
     }
 
-    // Article link
-    const overlayLink = document.getElementById('overlay-link');
-    if (game.articleLink) {
-      overlayLink.href = game.articleLink;
-      overlayLink.textContent = 'Read Article \u2192';
-    } else {
-      overlayLink.href = '#';
-      overlayLink.textContent = '';
-    }
-
-    const accuracy = game.guessedLetters.size > 0
-      ? Math.round((game.correctLetters.size / game.guessedLetters.size) * 100)
-      : 0;
-
-    els.overlayStats.innerHTML = `
-      <div class="stat-item">
-        <span class="stat-value">${game.correctLetters.size}</span>
-        <span>Correct</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-value">${game.wrongLetters.size}</span>
-        <span>Wrong</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-value">${accuracy}%</span>
-        <span>Accuracy</span>
-      </div>
-    `;
-
-    els.gameOverlay.classList.remove('hidden');
+    // Show actions row (next button)
+    els.resultActions.classList.remove('hidden');
   }
 
-  function hideOverlay() {
-    els.gameOverlay.classList.add('hidden');
+  function hideResult() {
+    els.resultIcon.classList.add('hidden');
+    els.resultActions.classList.add('hidden');
   }
 
   // --- UI State ---
@@ -467,18 +452,28 @@
 
   function showEmptyState() {
     els.gameLoading.classList.add('hidden');
+    els.gameNoProxy.classList.add('hidden');
     els.gameEmpty.classList.remove('hidden');
   }
 
+  function showNoProxyState() {
+    els.gameLoading.classList.add('hidden');
+    els.gameEmpty.classList.add('hidden');
+    els.gameNoProxy.classList.remove('hidden');
+  }
+
   function updateBottomBar() {
-    els.scoreValue.textContent = game.score;
-    els.diffValue.textContent = Game.DIFFICULTY_CONFIG[game.difficulty].label;
     els.streakValue.textContent = game.streak;
   }
 
-  function updateWrongCount() {
-    els.wrongCurrent.textContent = game.wrongLetters.size;
-    els.wrongMax.textContent = game.maxWrong;
+  function renderWrongBar() {
+    const max = game.maxWrong;
+    const wrong = game.wrongLetters.size;
+    let html = '';
+    for (let i = 0; i < max; i++) {
+      html += `<div class="wrong-segment${i < wrong ? ' filled' : ''}"></div>`;
+    }
+    els.wrongBar.innerHTML = html;
   }
 
   // --- Feed Changes ---
