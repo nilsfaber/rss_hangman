@@ -67,13 +67,15 @@ class Settings {
       this.game.setMaxWrong(this.maxWrongSelect.value);
     });
 
-    // Reset stats
-    this.btnResetStats.addEventListener('click', () => {
-      if (confirm('Reset all game statistics? This cannot be undone.')) {
-        this.game.resetStats();
-        this._updateDifficultyDisplay();
-      }
-    });
+    // Reset stats (optional button)
+    if (this.btnResetStats) {
+      this.btnResetStats.addEventListener('click', () => {
+        if (confirm('Reset all game statistics? This cannot be undone.')) {
+          this.game.resetStats();
+          this._updateDifficultyDisplay();
+        }
+      });
+    }
 
     // Force fetch feeds
     this.btnForceFetch.addEventListener('click', () => this._handleForceFetch());
@@ -255,7 +257,6 @@ class Settings {
 
   async _handleForceFetch() {
     this.btnForceFetch.disabled = true;
-    this.btnForceFetch.textContent = '⟳ Fetching…';
     try {
       // Clear cached headlines so we get a completely fresh set
       this.rss.headlines = [];
@@ -268,7 +269,6 @@ class Settings {
       this._showStatus('Fetch failed: ' + err.message, 'error');
     } finally {
       this.btnForceFetch.disabled = false;
-      this.btnForceFetch.textContent = '⟳ Refresh Feeds';
     }
   }
 

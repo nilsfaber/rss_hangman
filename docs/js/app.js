@@ -9,6 +9,7 @@
   const rssService = new RSSService();
   const game = new Game();
   let settings;
+  let confettiCleanupTimer;
 
   // --- DOM References ---
   const screens = {
@@ -17,16 +18,14 @@
   };
 
   const els = {
+    gameContainer: document.getElementById('game-container'),
     btnSettings: document.getElementById('btn-settings'),
     btnBack: document.getElementById('btn-back'),
-    btnNext: document.getElementById('btn-next'),
     btnSkip: document.getElementById('btn-skip'),
     btnGoSettings: document.getElementById('btn-go-settings'),
     headlineDisplay: document.getElementById('headline-display'),
     headlineSource: document.getElementById('headline-source'),
     keyboard: document.getElementById('keyboard'),
-    resultIcon: document.getElementById('result-icon'),
-    resultActions: document.getElementById('result-actions'),
     gameLoading: document.getElementById('game-loading'),
     gameEmpty: document.getElementById('game-empty'),
     gameNoProxy: document.getElementById('game-no-proxy'),
@@ -34,6 +33,8 @@
     wrongBar: document.getElementById('wrong-bar'),
     btnRevealSource: document.getElementById('btn-reveal-source'),
   };
+
+  const CONFETTI_COLORS = ['#ff6b6b', '#ffd93d', '#6bcB77', '#4d96ff', '#c77dff', '#ff922b'];
 
   // --- Keyboard Layout ---
   const KEYBOARD_ROWS = [
@@ -94,10 +95,14 @@
         loadAndStartGame();
       }
     });
-    els.btnNext.addEventListener('click', () => nextRound());
     els.btnSkip.addEventListener('click', () => skipRound());
     els.btnRevealSource.addEventListener('click', () => revealSource());
     els.btnGoSettings.addEventListener('click', () => showScreen('settings'));
+    els.headlineSource.addEventListener('click', (e) => {
+      if (game.state === 'playing' || !els.headlineSource.getAttribute('href')) {
+        e.preventDefault();
+      }
+    });
 
     // Configure Proxy button — go to settings and scroll to Game section
     document.getElementById('btn-go-proxy-settings').addEventListener('click', () => {
@@ -196,6 +201,7 @@
     resetKeyboard();
     hideResult();
     els.headlineSource.textContent = '';
+    els.headlineSource.removeAttribute('href');
     els.headlineSource.classList.add('hidden');
     els.btnRevealSource.disabled = false;
     els.btnRevealSource.classList.remove('hidden');
@@ -219,10 +225,12 @@
     // Check if source was already revealed (via _source marker)
     if (game.wrongLetters.has('_source')) {
       els.headlineSource.textContent = game.articleSource || 'Unknown';
+      els.headlineSource.removeAttribute('href');
       els.headlineSource.classList.remove('hidden');
       els.btnRevealSource.classList.add('hidden');
     } else {
       els.headlineSource.textContent = '';
+      els.headlineSource.removeAttribute('href');
       els.headlineSource.classList.add('hidden');
       els.btnRevealSource.classList.remove('hidden');
       els.btnRevealSource.disabled = false;
@@ -265,6 +273,7 @@
 
     // Replace button with source text
     els.headlineSource.textContent = game.articleSource || 'Unknown';
+    els.headlineSource.removeAttribute('href');
     els.headlineSource.classList.remove('hidden');
     els.btnRevealSource.classList.add('hidden');
 
@@ -311,6 +320,13 @@
     els.headlineDisplay.innerHTML = '';
 
     let shownGroup = null; // accumulates consecutive shown words
+    const breakAfterPunctuation = /[,:.;]/;
+
+    function appendLineBreak() {
+      const lineBreak = document.createElement('span');
+      lineBreak.className = 'headline-break';
+      els.headlineDisplay.appendChild(lineBreak);
+    }
 
     function flushShown() {
       if (shownGroup) {
@@ -326,13 +342,19 @@
         // Accumulate into a shared shown group
         if (!shownGroup) {
           shownGroup = document.createElement('span');
-          shownGroup.className = 'word-group';
+          shownGroup.className = 'word-group shown-group';
         }
         // Add space before non-punctuation words (unless group is empty)
         if (!word.isPunct && shownGroup.textContent.length > 0) {
           shownGroup.textContent += ' ';
         }
         shownGroup.textContent += word.text;
+
+        if (breakAfterPunctuation.test(word.text)) {
+          flushShown();
+          appendLineBreak();
+        }
+
         return;
       }
 
@@ -388,6 +410,55 @@
     });
   }
 
+  function ensureConfettiLayer() {
+    if (els.confettiLayer) return;
+    const layer = document.createElement('div');
+    layer.id = 'confetti-layer';
+    els.gameContainer.appendChild(layer);
+    els.confettiLayer = layer;
+  }
+
+  function burstConfetti() {
+    ensureConfettiLayer();
+
+    clearTimeout(confettiCleanupTimer);
+    els.confettiLayer.innerHTML = '';
+
+    const layerRect = els.confettiLayer.getBoundingClientRect();
+    const streakRect = els.streakValue.getBoundingClientRect();
+    const originX = streakRect.left + (streakRect.width / 2) - layerRect.left;
+    const originY = streakRect.top + (streakRect.height / 2) - layerRect.top;
+
+    const pieceCount = 56;
+    for (let i = 0; i < pieceCount; i++) {
+      const piece = document.createElement('span');
+      piece.className = 'confetti-piece';
+
+      const angle = Math.random() * Math.PI * 2;
+      const distance = 90 + Math.random() * 180;
+      const tx = Math.cos(angle) * distance;
+      const ty = Math.sin(angle) * distance + 110;
+
+      piece.style.setProperty('--tx', `${tx.toFixed(1)}px`);
+      piece.style.setProperty('--ty', `${ty.toFixed(1)}px`);
+      piece.style.setProperty('--rot', `${Math.round((Math.random() * 900) - 450)}deg`);
+      piece.style.setProperty('--delay', `${Math.round(Math.random() * 140)}ms`);
+      piece.style.width = `${6 + Math.round(Math.random() * 6)}px`;
+      piece.style.height = `${10 + Math.round(Math.random() * 8)}px`;
+      piece.style.background = CONFETTI_COLORS[i % CONFETTI_COLORS.length];
+      piece.style.left = `${originX}px`;
+      piece.style.top = `${originY}px`;
+
+      els.confettiLayer.appendChild(piece);
+    }
+
+    confettiCleanupTimer = setTimeout(() => {
+      if (els.confettiLayer) {
+        els.confettiLayer.innerHTML = '';
+      }
+    }, 1700);
+  }
+
   // --- Win/Lose ---
   function onGameWon() {
     disableAllKeys();
@@ -399,6 +470,7 @@
 
     // Reveal all letters as won
     revealAllLetters('revealed');
+    burstConfetti();
 
     setTimeout(() => {
       showResult(true);
@@ -417,27 +489,30 @@
   }
 
   function showResult(won) {
-    // Show icon above headline (absolutely positioned)
-    els.resultIcon.textContent = won ? '🎉' : '💀';
-    els.resultIcon.classList.remove('hidden');
+    const streakClass = won ? 'outcome-won' : 'outcome-lost';
+    els.streakValue.classList.remove('outcome-won', 'outcome-lost');
+    void els.streakValue.offsetWidth;
+    els.streakValue.classList.add(streakClass);
+
+    els.btnSkip.classList.remove('wiggle');
+    void els.btnSkip.offsetWidth;
+    els.btnSkip.classList.add('wiggle');
 
     // Show source as clickable link under headline
     if (game.articleSource) {
       els.headlineSource.textContent = game.articleSource;
       if (game.articleLink) {
         els.headlineSource.href = game.articleLink;
+      } else {
+        els.headlineSource.removeAttribute('href');
       }
       els.headlineSource.classList.remove('hidden');
       els.btnRevealSource.classList.add('hidden');
     }
-
-    // Show actions row (next button)
-    els.resultActions.classList.remove('hidden');
   }
 
   function hideResult() {
-    els.resultIcon.classList.add('hidden');
-    els.resultActions.classList.add('hidden');
+    els.btnSkip.classList.remove('wiggle');
   }
 
   // --- UI State ---

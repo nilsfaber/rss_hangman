@@ -7,7 +7,7 @@
   "display": "standalone",
   "background_color": "#1a1a2e",
   "theme_color": "#1a1a2e",
-  "orientation": "any",
+  "orientation": "portrait",
   "icons": [
     {
       "src": "icons/icon-512.svg",

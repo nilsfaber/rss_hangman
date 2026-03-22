@@ -14,7 +14,7 @@ class Game {
     this.correctLetters = new Set();
     this.wrongLetters = new Set();
     this.maxWrong = 6;
-    this.difficulty = 'easy';  // easy, medium, hard, expert
+    this.difficulty = 'medium';  // easy, medium, hard, expert
     this.state = 'idle';       // idle, playing, won, lost
     this.streak = 0;
     this.gamesPlayed = 0;
@@ -47,7 +47,7 @@ class Game {
   }
 
   setMaxWrong(max) {
-    this.maxWrong = parseInt(max, 10);
+    this.maxWrong = parseInt(max, 6);
     this._saveSetting('maxWrong', this.maxWrong);
   }
 
@@ -459,7 +459,7 @@ Game.DEFAULT_WHITELIST = [
   'he','she','her','his','we','they','that','this','with','not','no','too',
   'so','has','had','was','can','will','its','are','be','by','as','do','if',
   'my','up','all','out','one','new','from','who','get','got','say','how',
-  'may','into',
+  'may','into', 'nd', 'th', 'rd', 'st',
   // Dutch
   'de','het','een','en','of','maar','op','aan','te','voor','van','hij',
   'zij','haar','zijn','wij','dat','dit','met','niet','nee','ook','zo',
