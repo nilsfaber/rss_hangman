@@ -43,7 +43,8 @@ class Settings {
     this.btnCloseProxyModal = document.getElementById('btn-close-proxy-modal');
     this.btnCopyProxyScript = document.getElementById('btn-copy-proxy-script');
     this.proxyScriptCode = document.getElementById('proxy-script-code');
-
+    this.randomisationSelector = document.getElementById('randomisation-selector');
+    this.themeSelector = document.getElementById('theme-selector');
   }
 
   _bindEvents() {
@@ -82,6 +83,21 @@ class Settings {
 
     // Export feeds
     this.btnExport.addEventListener('click', () => this._handleExportFeeds());
+
+    // Randomisation buttons
+    this.randomisationSelector.querySelectorAll('.rand-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.rss.setRandomisation(btn.dataset.mode);
+        this._renderRandomisation();
+      });
+    });
+
+    // Theme buttons
+    this.themeSelector.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._applyTheme(btn.dataset.theme);
+      });
+    });
 
     // Exclude strings
     this.btnAddExclude.addEventListener('click', () => this._handleAddExclude());
@@ -158,9 +174,11 @@ class Settings {
 
   render() {
     this._renderFeeds();
+    this._renderRandomisation();
     this._renderDifficulty();
     this._renderExcludeList();
     this._renderWhitelist();
+    this._renderTheme();
     this.maxWrongSelect.value = this.game.maxWrong;
     this.allowSpecialCharsToggle.checked = this.game.allowSpecialChars;
     this.proxyUrlInput.value = this.rss.proxyUrl || '';
@@ -175,15 +193,25 @@ class Settings {
       return;
     }
 
-    this.rss.feeds.forEach(feed => {
+    this.rss.feeds.forEach((feed, idx) => {
+      const enabled = feed.enabled !== false;
       const el = document.createElement('div');
-      el.className = 'feed-item';
+      el.className = 'feed-item' + (enabled ? '' : ' feed-item--disabled');
+      el.dataset.url = feed.url;
+      el.dataset.index = idx;
       el.innerHTML = `
+        <div class="feed-drag-handle" aria-label="Drag to reorder" title="Drag to reorder">
+          <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M11 18c0 1.1-.9 2-2 2s-2-.9-2-2 .9-2 2-2 2 .9 2 2zm-2-8c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm6 4c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/></svg>
+        </div>
         <div class="feed-info">
           <div class="feed-name">${this._escapeHtml(feed.name)}</div>
           <div class="feed-url">${this._escapeHtml(feed.url)}</div>
         </div>
-        <span class="feed-count">${feed.headlineCount || '?'} items</span>
+        <span class="feed-count">${this._feedCountLabel(feed)}</span>
+        <label class="toggle-switch feed-enable-toggle" title="${enabled ? 'Disable feed' : 'Enable feed'}">
+          <input type="checkbox" ${enabled ? 'checked' : ''} data-url="${this._escapeHtml(feed.url)}">
+          <span class="toggle-slider"></span>
+        </label>
         <button class="feed-remove-btn" data-url="${this._escapeHtml(feed.url)}" aria-label="Remove feed">
           <svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>
         </button>
@@ -196,8 +224,16 @@ class Settings {
         if (this.onFeedsChanged) this.onFeedsChanged();
       });
 
+      el.querySelector('.feed-enable-toggle input').addEventListener('change', (e) => {
+        this.rss.toggleFeed(e.target.dataset.url);
+        el.classList.toggle('feed-item--disabled', !e.target.checked);
+        if (this.onFeedsChanged) this.onFeedsChanged();
+      });
+
       this.feedList.appendChild(el);
     });
+
+    this._initDragAndDrop();
   }
 
   _renderDifficulty() {
@@ -464,6 +500,99 @@ class Settings {
     } catch {
       this._showStatus('Proxy saved but feed refresh failed', 'error');
     }
+  }
+  _feedCountLabel(feed) {
+    const total = feed.headlineCount || 0;
+    const solved = this.rss.headlines.filter(
+      h => h.source === feed.name && this.game.usedHeadlines.has(h.title)
+    ).length;
+    if (!total) return '<span style="color:var(--text-muted)">?</span>';
+    return `<span style="color:#6bcb77">${solved}</span><span style="color:var(--text-muted)"> / </span><span style="color:#ff6b6b">${total}</span>`;
+  }
+
+  _applyTheme(theme) {
+    if (theme === 'dark') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    localStorage.setItem('hangman_theme', theme);
+    this._renderTheme();
+  }
+
+  _renderTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    this.themeSelector.querySelectorAll('.theme-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.theme === current);
+    });
+  }
+
+  _renderRandomisation() {
+    this.randomisationSelector.querySelectorAll('.rand-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.mode === this.rss.randomisation);
+    });
+  }
+
+  _initDragAndDrop() {
+    let drag = null;
+
+    // Remove previous listeners by replacing the node
+    const list = this.feedList;
+
+    list.addEventListener('pointerdown', (e) => {
+      if (!e.target.closest('.feed-drag-handle')) return;
+      const item = e.target.closest('.feed-item');
+      if (!item) return;
+      e.preventDefault();
+
+      const allItems = [...list.querySelectorAll('.feed-item')];
+      const fromIndex = allItems.indexOf(item);
+      const rect = item.getBoundingClientRect();
+
+      const ghost = item.cloneNode(true);
+      ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;margin:0;opacity:0.9;pointer-events:none;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.5);border-radius:8px;`;
+      document.body.appendChild(ghost);
+      item.classList.add('feed-item--dragging');
+
+      drag = { item, ghost, fromIndex, overIndex: -1, offsetY: e.clientY - rect.top };
+    });
+
+    const onMove = (e) => {
+      if (!drag) return;
+      drag.ghost.style.top = (e.clientY - drag.offsetY) + 'px';
+
+      const items = [...list.querySelectorAll('.feed-item:not(.feed-item--dragging)')];
+      let bestIdx = -1, bestDist = Infinity;
+      items.forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        const dist = Math.abs(e.clientY - (r.top + r.height / 2));
+        if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+      });
+
+      items.forEach(el => el.classList.remove('feed-item--drag-over'));
+      if (bestIdx !== -1) items[bestIdx].classList.add('feed-item--drag-over');
+      drag.overIndex = bestIdx;
+    };
+
+    const onEnd = () => {
+      if (!drag) return;
+      drag.ghost.remove();
+      drag.item.classList.remove('feed-item--dragging');
+      list.querySelectorAll('.feed-item--drag-over').forEach(el => el.classList.remove('feed-item--drag-over'));
+
+      if (drag.overIndex !== -1) {
+        const toIndex = drag.overIndex < drag.fromIndex ? drag.overIndex : drag.overIndex + 1;
+        if (toIndex !== drag.fromIndex) {
+          this.rss.reorderFeed(drag.fromIndex, toIndex);
+          this._renderFeeds();
+        }
+      }
+      drag = null;
+    };
+
+    document.addEventListener('pointermove', onMove);
+    document.addEventListener('pointerup', onEnd);
+    document.addEventListener('pointercancel', onEnd);
   }
 }
 

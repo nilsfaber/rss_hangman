@@ -196,13 +196,15 @@ class Game {
 
     tokens.forEach(token => {
       if (/^\s+$/.test(token)) {
-        // skip standalone whitespace, it's implicit between words
+        // mark previous word as having a space after it
+        if (this.words.length > 0) this.words[this.words.length - 1].spaceAfter = true;
         return;
       }
       this.words.push({
         text: token,
         isWord: /[a-zA-Z\u00C0-\u024F]/.test(token), // contains at least one letter (incl accented)
-        isPunct: /^[^\w\s\u00C0-\u024F]+$/.test(token)
+        isPunct: /^[^\w\s\u00C0-\u024F]+$/.test(token),
+        spaceAfter: false
       });
     });
   }
@@ -215,6 +217,7 @@ class Game {
     const wordIndices = this.words
       .map((w, i) => ({ w, i }))
       .filter(({ w }) => w.isWord && w.text.length >= 2) // only hide real words with 2+ chars
+      .filter(({ w }) => w.text.length <= 14) // skip very long words that overflow on small screens
       .filter(({ w }) => !this.whitelistWords.has(w.text.toLowerCase())) // never mask whitelisted words
       .map(({ i }) => i);
 
@@ -236,9 +239,9 @@ class Game {
    * Returns {title, link} or null.
    */
   pickHeadline(headlines, rssService) {
-    // Normalise to {title, link} objects
+    // Normalise to {title, link, feedIndex} objects
     const items = headlines.map(h =>
-      typeof h === 'string' ? { title: h, link: '' } : h
+      typeof h === 'string' ? { title: h, link: '', feedIndex: 0 } : h
     );
 
     // Apply exclude filter
@@ -269,8 +272,46 @@ class Game {
       this._saveUsedHeadlines();
     }
 
-    const pick = pool[Math.floor(Math.random() * pool.length)];
-    return pick;
+    const mode = (rssService && rssService.randomisation) || 'random';
+    if (mode === 'sequential') return this._pickSequential(pool);
+    if (mode === 'weighted')   return this._pickWeighted(pool);
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
+  _pickSequential(pool) {
+    // Group by feedIndex, pick from the group with the lowest feedIndex
+    const groups = new Map();
+    for (const h of pool) {
+      const idx = h.feedIndex ?? 0;
+      if (!groups.has(idx)) groups.set(idx, []);
+      groups.get(idx).push(h);
+    }
+    const minIdx = Math.min(...groups.keys());
+    const g = groups.get(minIdx);
+    return g[Math.floor(Math.random() * g.length)];
+  }
+
+  _pickWeighted(pool) {
+    // Group by feedIndex; earlier feeds get higher weight (N, N-1, ..., 1)
+    const groups = new Map();
+    for (const h of pool) {
+      const idx = h.feedIndex ?? 0;
+      if (!groups.has(idx)) groups.set(idx, []);
+      groups.get(idx).push(h);
+    }
+    const sortedKeys = [...groups.keys()].sort((a, b) => a - b);
+    const n = sortedKeys.length;
+    const totalWeight = (n * (n + 1)) / 2;
+    let r = Math.random() * totalWeight;
+    for (let i = 0; i < sortedKeys.length; i++) {
+      r -= (n - i);
+      if (r <= 0) {
+        const g = groups.get(sortedKeys[i]);
+        return g[Math.floor(Math.random() * g.length)];
+      }
+    }
+    const lastGroup = groups.get(sortedKeys[sortedKeys.length - 1]);
+    return lastGroup[Math.floor(Math.random() * lastGroup.length)];
   }
 
   _onWin() {
@@ -328,15 +369,28 @@ class Game {
 
   _saveUsedHeadlines() {
     try {
-      sessionStorage.setItem('hangman_used', JSON.stringify([...this.usedHeadlines]));
+      localStorage.setItem('hangman_used', JSON.stringify([...this.usedHeadlines]));
     } catch (e) { /* quota */ }
   }
 
   _loadUsedHeadlines() {
     try {
-      const data = JSON.parse(sessionStorage.getItem('hangman_used'));
+      const data = JSON.parse(localStorage.getItem('hangman_used'));
       if (Array.isArray(data)) this.usedHeadlines = new Set(data);
     } catch (e) { /* ignore */ }
+  }
+
+  /**
+   * Remove any stored headlines that are no longer present in the current feed.
+   * Call this after a feed refresh so stale entries don't accumulate.
+   */
+  pruneUsedHeadlines(headlines) {
+    const available = new Set(headlines.map(h => (typeof h === 'string' ? h : h.title)));
+    const before = this.usedHeadlines.size;
+    for (const title of this.usedHeadlines) {
+      if (!available.has(title)) this.usedHeadlines.delete(title);
+    }
+    if (this.usedHeadlines.size !== before) this._saveUsedHeadlines();
   }
 
   // ── In-progress game state persistence ────────────────────────

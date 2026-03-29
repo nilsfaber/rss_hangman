@@ -17,6 +17,8 @@ class RSSService {
     this._loadFeeds();
     this._loadExcludeStrings();
     this._loadProxyUrl();
+    this.randomisation = 'random'; // 'random' | 'weighted' | 'sequential'
+    this._loadRandomisation();
   }
 
   static get PRESET_FEEDS() {
@@ -174,7 +176,7 @@ class RSSService {
         return { success: false, error: 'No valid headlines found in feed' };
       }
 
-      const feed = { url, name: feedTitle || url, headlineCount: headlines.length };
+      const feed = { url, name: feedTitle || url, headlineCount: headlines.length, enabled: true };
       this.feeds.push(feed);
       this.headlines.push(...headlines);
       this._saveFeeds();
@@ -195,7 +197,8 @@ class RSSService {
    * Fetch all headlines from every configured feed.
    */
   async fetchAllHeadlines() {
-    if (this.feeds.length === 0) {
+    const enabledFeeds = this.feeds.filter(f => f.enabled !== false);
+    if (enabledFeeds.length === 0) {
       this.headlines = [];
       return [];
     }
@@ -204,12 +207,13 @@ class RSSService {
     const errors = [];
 
     await Promise.allSettled(
-      this.feeds.map(async (feed) => {
+      enabledFeeds.map(async (feed, feedIndex) => {
         try {
           const { feedTitle, headlines } = await this._fetchAndParse(feed.url);
           feed.name = feedTitle || feed.name;
           feed.headlineCount = headlines.length;
           feed.error = null;
+          headlines.forEach(h => { h.feedIndex = feedIndex; });
           allHeadlines.push(...headlines);
         } catch (err) {
           feed.error = err.message;
@@ -305,16 +309,46 @@ class RSSService {
       const raw = localStorage.getItem('hangman_feeds');
       if (raw !== null) {
         const feeds = JSON.parse(raw);
-        if (Array.isArray(feeds)) this.feeds = feeds;
+        if (Array.isArray(feeds)) {
+          this.feeds = feeds;
+          this.feeds.forEach(f => { if (f.enabled === undefined) f.enabled = true; });
+        }
       } else {
         // First-time user: seed with preset feeds
-        this.feeds = RSSService.PRESET_FEEDS.map(p => ({
-          url: p.url, name: p.name, headlineCount: 0
-        }));
+        this.feeds = RSSService.PRESET_FEEDS.map(p => ({ url: p.url, name: p.name, headlineCount: 0, enabled: true }));
         this._saveFeeds();
       }
     } catch (e) { /* ignore */ }
     this.headlines = this._getCachedHeadlines();
+  }
+
+  toggleFeed(url) {
+    const feed = this.feeds.find(f => f.url === url);
+    if (feed) {
+      feed.enabled = !feed.enabled;
+      this._saveFeeds();
+    }
+  }
+
+  reorderFeed(fromIndex, toIndex) {
+    if (fromIndex === toIndex) return;
+    const [item] = this.feeds.splice(fromIndex, 1);
+    this.feeds.splice(toIndex, 0, item);
+    this._saveFeeds();
+  }
+
+  setRandomisation(mode) {
+    this.randomisation = mode;
+    this._saveRandomisation();
+  }
+
+  _saveRandomisation() {
+    localStorage.setItem('hangman_randomisation', this.randomisation);
+  }
+
+  _loadRandomisation() {
+    const v = localStorage.getItem('hangman_randomisation');
+    if (v === 'weighted' || v === 'sequential') this.randomisation = v;
   }
 }
 

@@ -16,6 +16,9 @@
   <link rel="apple-touch-icon" href="icons/icon-512.svg">
   <title>RSS Hangman</title>
   <link rel="stylesheet" href="css/style.css">
+  <script>
+    (function(){var t=localStorage.getItem('hangman_theme');if(t&&t!=='dark')document.documentElement.setAttribute('data-theme',t);})();
+  </script>
 </head>
 <body>
   <div id="app">
@@ -57,23 +60,7 @@
           <p>Fetching headlines...</p>
         </div>
 
-        <div id="game-empty" class="hidden">
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
-            <h2>No Headlines Available</h2>
-            <p>Add RSS feeds in Settings to start playing!</p>
-            <button id="btn-go-settings" class="btn-primary">Open Settings</button>
-          </div>
-        </div>
-
-        <div id="game-no-proxy" class="hidden">
-          <div class="empty-state">
-            <svg viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-8h2v6h-2V9z"/></svg>
-            <h2>CORS Proxy Not Configured</h2>
-            <p>A proxy is needed to fetch RSS feeds. Set it up in Game settings.</p>
-            <button id="btn-go-proxy-settings" class="btn-primary">Configure Proxy</button>
-          </div>
-        </div>
+        <div id="game-empty" class="hidden"></div>
       </div>
     </main>
 
@@ -101,10 +88,27 @@
             </div>
           </div>
           <p class="settings-desc">Add RSS feed URLs to source headlines for the game.</p>
-          <div id="feed-list"></div>
           <div id="add-feed-form">
             <input type="url" id="feed-url-input" placeholder="Paste one or more feed URLs" autocomplete="off">
             <button id="btn-add-feed" class="btn-primary">Add</button>
+          </div>
+          <div id="feed-list"></div>
+          <div class="randomisation-row">
+            <span class="randomisation-label">Randomisation</span>
+            <div id="randomisation-selector" class="randomisation-selector">
+              <button class="rand-btn active" data-mode="random">
+                <span class="rand-name">Random</span>
+                <span class="rand-desc">Equal chance</span>
+              </button>
+              <button class="rand-btn" data-mode="weighted">
+                <span class="rand-name">Weighted</span>
+                <span class="rand-desc">Prefer top</span>
+              </button>
+              <button class="rand-btn" data-mode="sequential">
+                <span class="rand-name">Sequential</span>
+                <span class="rand-desc">Strict order</span>
+              </button>
+            </div>
           </div>
         </section>
 
@@ -188,6 +192,15 @@
               <input type="checkbox" id="allow-special-chars">
               <span class="toggle-slider"></span>
             </label>
+          </div>
+        </section>
+
+        <section class="settings-section">
+          <h2>Theme</h2>
+          <div id="theme-selector" class="theme-selector">
+            <button class="theme-btn" data-theme="dark">Dark</button>
+            <button class="theme-btn" data-theme="light">Light</button>
+            <button class="theme-btn" data-theme="epaper">E-paper</button>
           </div>
         </section>
 

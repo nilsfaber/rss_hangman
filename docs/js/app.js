@@ -23,13 +23,11 @@
     btnSettings: document.getElementById('btn-settings'),
     btnBack: document.getElementById('btn-back'),
     btnSkip: document.getElementById('btn-skip'),
-    btnGoSettings: document.getElementById('btn-go-settings'),
     headlineDisplay: document.getElementById('headline-display'),
     headlineSource: document.getElementById('headline-source'),
     keyboard: document.getElementById('keyboard'),
     gameLoading: document.getElementById('game-loading'),
     gameEmpty: document.getElementById('game-empty'),
-    gameNoProxy: document.getElementById('game-no-proxy'),
     streakValue: document.getElementById('streak-value'),
     wrongBar: document.getElementById('wrong-bar'),
     btnRevealSource: document.getElementById('btn-reveal-source'),
@@ -54,7 +52,7 @@
 
     // Initial load
     if (!rssService.proxyUrl) {
-      showNoProxyState();
+      showEmptyState();
     } else if (rssService.feeds.length === 0) {
       showEmptyState();
     } else {
@@ -63,7 +61,7 @@
       if (restored) {
         restoreRound(restored);
         // Refresh headlines in background
-        rssService.fetchAllHeadlines().catch(() => {});
+        rssService.fetchAllHeadlines().then(h => game.pruneUsedHeadlines(h)).catch(() => {});
       } else {
         loadAndStartGame();
       }
@@ -91,26 +89,28 @@
       showScreen('game');
       // If feeds exist but no game is running, load headlines
       if (!rssService.proxyUrl) {
-        showNoProxyState();
+        showEmptyState();
       } else if (rssService.feeds.length > 0 && game.state === 'idle') {
         loadAndStartGame();
       }
     });
     els.btnSkip.addEventListener('click', () => skipRound());
     els.btnRevealSource.addEventListener('click', () => revealSource());
-    els.btnGoSettings.addEventListener('click', () => showScreen('settings'));
+    els.gameEmpty.addEventListener('click', (e) => {
+      const btn = e.target.closest('button');
+      if (!btn) return;
+      showScreen('settings');
+      if (btn.dataset.scrollTo) {
+        const target = document.getElementById(btn.dataset.scrollTo);
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    });
     els.headlineSource.addEventListener('click', (e) => {
       if (game.state === 'playing' || !els.headlineSource.getAttribute('href')) {
         e.preventDefault();
       }
     });
 
-    // Configure Proxy button — go to settings and scroll to Game section
-    document.getElementById('btn-go-proxy-settings').addEventListener('click', () => {
-      showScreen('settings');
-      const gameSection = document.getElementById('proxy-url');
-      if (gameSection) gameSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
 
     // Physical keyboard
     document.addEventListener('keydown', (e) => {
@@ -166,13 +166,14 @@
   // --- Game Flow ---
   async function loadAndStartGame() {
     if (!rssService.proxyUrl) {
-      showNoProxyState();
+      showEmptyState();
       return;
     }
     showLoadingState();
 
     try {
       const headlines = await rssService.fetchAllHeadlines();
+      game.pruneUsedHeadlines(headlines);
       if (headlines.length === 0) {
         showEmptyState();
         return;
@@ -351,7 +352,7 @@
         }
         shownGroup.textContent += word.text;
 
-        if (breakAfterPunctuation.test(word.text)) {
+        if (breakAfterPunctuation.test(word.text) && word.spaceAfter) {
           flushShown();
           appendLineBreak();
         }
@@ -528,14 +529,22 @@
 
   function showEmptyState() {
     els.gameLoading.classList.add('hidden');
-    els.gameNoProxy.classList.add('hidden');
+    if (!rssService.proxyUrl) {
+      els.gameEmpty.innerHTML = `<div class="empty-state">
+        <svg viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 15h2v2h-2v-2zm0-8h2v6h-2V9z"/></svg>
+        <h2>CORS Proxy Not Configured</h2>
+        <p>A proxy is needed to fetch RSS feeds. Set it up in Game settings.</p>
+        <button class="btn-primary" data-scroll-to="proxy-url">Configure Proxy</button>
+      </div>`;
+    } else {
+      els.gameEmpty.innerHTML = `<div class="empty-state">
+        <svg viewBox="0 0 24 24" width="64" height="64"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27A6.47 6.47 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+        <h2>No Headlines Available</h2>
+        <p>Add RSS feeds in Settings to start playing!</p>
+        <button class="btn-primary">Open Settings</button>
+      </div>`;
+    }
     els.gameEmpty.classList.remove('hidden');
-  }
-
-  function showNoProxyState() {
-    els.gameLoading.classList.add('hidden');
-    els.gameEmpty.classList.add('hidden');
-    els.gameNoProxy.classList.remove('hidden');
   }
 
   function updateBottomBar() {

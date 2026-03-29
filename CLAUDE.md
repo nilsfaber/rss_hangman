@@ -66,3 +66,4 @@ No install step needed.
 - DOM manipulation is direct — `getElementById`, `querySelector`, `classList`.
 - CSS uses custom properties and `clamp()` for responsive sizing.
 - Keep all logic in the four JS files; avoid adding new files unless absolutely necessary.
+- always update readme.md and chache_name in sw.js  when adding/changing/removing features
