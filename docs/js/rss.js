@@ -69,10 +69,14 @@ class RSSService {
   // ── XML parsing with DOMParser ─────────────────────────────────────
 
   /** Decode HTML entities like &amp;quot; &amp;amp; &amp;#39; etc. */
+  static _entityDecoder = null;
+
   _decodeEntities(str) {
-    const el = document.createElement('textarea');
-    el.innerHTML = str;
-    return el.value;
+    if (!RSSService._entityDecoder) {
+      RSSService._entityDecoder = document.createElement('textarea');
+    }
+    RSSService._entityDecoder.innerHTML = str;
+    return RSSService._entityDecoder.value;
   }
 
   /**

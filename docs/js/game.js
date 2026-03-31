@@ -229,8 +229,17 @@ class Game {
     const numToHide = Math.max(1, Math.round(wordIndices.length * config.hidePct));
 
     // Shuffle and pick
-    const shuffled = [...wordIndices].sort(() => Math.random() - 0.5);
+    const shuffled = Game._shuffle(wordIndices);
     this.hiddenIndices = shuffled.slice(0, numToHide).sort((a, b) => a - b);
+  }
+
+  static _shuffle(array) {
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
   }
 
   /**

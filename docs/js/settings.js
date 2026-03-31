@@ -6,6 +6,7 @@ class Settings {
     this.rss = rssService;
     this.game = game;
     this.onFeedsChanged = onFeedsChanged;
+    this._dragInitDone = false;
 
     this._cacheElements();
     this._bindEvents();
@@ -233,7 +234,10 @@ class Settings {
       this.feedList.appendChild(el);
     });
 
-    this._initDragAndDrop();
+    if (!this._dragInitDone) {
+      this._initDragAndDrop();
+      this._dragInitDone = true;
+    }
   }
 
   _renderDifficulty() {

@@ -282,6 +282,7 @@
     // Cost: one wrong guess
     game.wrongLetters.add('_source');
     renderWrongBar();
+    game._saveGameState();
 
     // Check if this causes a loss
     if (game.wrongLetters.size >= game.maxWrong) {
