@@ -2,10 +2,11 @@
  * Settings - Manages the settings screen UI interactions.
  */
 class Settings {
-  constructor(rssService, game, onFeedsChanged) {
+  constructor(rssService, game, onFeedsChanged, onLayoutChanged) {
     this.rss = rssService;
     this.game = game;
     this.onFeedsChanged = onFeedsChanged;
+    this.onLayoutChanged = onLayoutChanged;
     this._dragInitDone = false;
 
     this._cacheElements();
@@ -46,6 +47,7 @@ class Settings {
     this.proxyScriptCode = document.getElementById('proxy-script-code');
     this.randomisationSelector = document.getElementById('randomisation-selector');
     this.themeSelector = document.getElementById('theme-selector');
+    this.layoutSelector = document.getElementById('layout-selector');
   }
 
   _bindEvents() {
@@ -97,6 +99,13 @@ class Settings {
     this.themeSelector.querySelectorAll('.theme-btn').forEach(btn => {
       btn.addEventListener('click', () => {
         this._applyTheme(btn.dataset.theme);
+      });
+    });
+
+    // Layout buttons
+    this.layoutSelector.querySelectorAll('.layout-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._applyLayout(btn.dataset.layout);
       });
     });
 
@@ -180,6 +189,7 @@ class Settings {
     this._renderExcludeList();
     this._renderWhitelist();
     this._renderTheme();
+    this._renderLayout();
     this.maxWrongSelect.value = this.game.maxWrong;
     this.allowSpecialCharsToggle.checked = this.game.allowSpecialChars;
     this.proxyUrlInput.value = this.rss.proxyUrl || '';
@@ -528,6 +538,19 @@ class Settings {
     const current = document.documentElement.getAttribute('data-theme') || 'dark';
     this.themeSelector.querySelectorAll('.theme-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.theme === current);
+    });
+  }
+
+  _applyLayout(layout) {
+    localStorage.setItem('hangman_keyboard_layout', layout);
+    this._renderLayout();
+    if (this.onLayoutChanged) this.onLayoutChanged(layout);
+  }
+
+  _renderLayout() {
+    const current = localStorage.getItem('hangman_keyboard_layout') || 'qwerty';
+    this.layoutSelector.querySelectorAll('.layout-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.layout === current);
     });
   }
 

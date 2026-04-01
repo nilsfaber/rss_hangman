@@ -22,6 +22,7 @@ class Game {
     this.usedHeadlines = new Set();
     this.allowSpecialChars = false;
     this.whitelistWords = new Set();
+    this._hiddenLettersCache = null;
 
     this._loadStats();
     this._loadUsedHeadlines();
@@ -47,7 +48,7 @@ class Game {
   }
 
   setMaxWrong(max) {
-    this.maxWrong = parseInt(max, 6);
+    this.maxWrong = parseInt(max, 10);
     this._saveSetting('maxWrong', this.maxWrong);
   }
 
@@ -68,6 +69,7 @@ class Game {
 
     // Decide which words to hide based on difficulty
     this._selectHiddenWords();
+    this._hiddenLettersCache = this._getUniqueHiddenLetters();
 
     // Track used headlines
     this.usedHeadlines.add(headline);
@@ -77,7 +79,7 @@ class Game {
     return {
       words: this.words,
       hiddenIndices: this.hiddenIndices,
-      lettersNeeded: this._getUniqueHiddenLetters()
+      lettersNeeded: this._hiddenLettersCache
     };
   }
 
@@ -135,7 +137,8 @@ class Game {
       const word = this.words[idx];
       for (const ch of word.text) {
         if (/[a-z\u00C0-\u024F]/i.test(ch)) {
-          letters.add(this._normalizeChar(ch).toLowerCase());
+          const norm = this._normalizeChar(ch).toLowerCase();
+          if (/^[a-z]$/.test(norm)) letters.add(norm);
         }
       }
     });
@@ -143,18 +146,17 @@ class Game {
   }
 
   /**
-   * Get set of all lowercase letters in hidden words
+   * Get set of all lowercase letters in hidden words (cached per game)
    */
   _getHiddenLetters() {
-    return this._getUniqueHiddenLetters();
+    return this._hiddenLettersCache;
   }
 
   /**
    * Check if all hidden letters have been guessed
    */
   _checkWin() {
-    const needed = this._getUniqueHiddenLetters();
-    for (const letter of needed) {
+    for (const letter of this._hiddenLettersCache) {
       if (!this.correctLetters.has(letter)) return false;
     }
     return true;
@@ -450,11 +452,12 @@ class Game {
       this.correctLetters = new Set(s.correctLetters);
       this.wrongLetters = new Set(s.wrongLetters);
       this.state = 'playing';
+      this._hiddenLettersCache = this._getUniqueHiddenLetters();
 
       return {
         words: this.words,
         hiddenIndices: this.hiddenIndices,
-        lettersNeeded: this._getUniqueHiddenLetters()
+        lettersNeeded: this._hiddenLettersCache
       };
     } catch (e) {
       this.clearGameState();

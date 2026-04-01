@@ -47,6 +47,27 @@
             </button>
             <div id="streak-display">
               <span id="streak-value" class="score-number">0</span>
+              <div id="stats-tooltip" class="stats-tooltip hidden" role="tooltip">
+                <p class="stats-tooltip-title">Stats</p>
+                <div class="stats-grid">
+                  <div class="stat-tile">
+                    <span class="stat-val" id="tt-streak">0</span>
+                    <span class="stat-label">Streak</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-val" id="tt-played">0</span>
+                    <span class="stat-label">Played</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-val" id="tt-won">0</span>
+                    <span class="stat-label">Won</span>
+                  </div>
+                  <div class="stat-tile">
+                    <span class="stat-val" id="tt-rate">—</span>
+                    <span class="stat-label">Win Rate</span>
+                  </div>
+                </div>
+              </div>
             </div>
             <button id="btn-skip" class="bar-icon-btn" aria-label="Skip headline" title="Skip this headline">
               <svg viewBox="0 0 24 24" width="80%" height="80%"><path fill="currentColor" d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
@@ -196,11 +217,20 @@
         </section>
 
         <section class="settings-section">
-          <h2>Theme</h2>
+          <h2>Interface</h2>
+          <p class="settings-desc">Theme</p>
           <div id="theme-selector" class="theme-selector">
             <button class="theme-btn" data-theme="dark">Dark</button>
             <button class="theme-btn" data-theme="light">Light</button>
             <button class="theme-btn" data-theme="epaper">E-paper</button>
+          </div>
+          <p class="settings-desc" style="margin-top: 14px;">Keyboard layout</p>
+          <div id="layout-selector" class="layout-selector">
+            <button class="layout-btn" data-layout="qwerty">QWERTY</button>
+            <button class="layout-btn" data-layout="azerty">AZERTY</button>
+            <button class="layout-btn" data-layout="qwertz">QWERTZ</button>
+            <button class="layout-btn" data-layout="dvorak">Dvorak</button>
+            <button class="layout-btn" data-layout="colemak">Colemak</button>
           </div>
         </section>
 

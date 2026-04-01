@@ -31,21 +31,56 @@
     streakValue: document.getElementById('streak-value'),
     wrongBar: document.getElementById('wrong-bar'),
     btnRevealSource: document.getElementById('btn-reveal-source'),
+    streakDisplay: document.getElementById('streak-display'),
+    statsTooltip: document.getElementById('stats-tooltip'),
+    ttStreak: document.getElementById('tt-streak'),
+    ttPlayed: document.getElementById('tt-played'),
+    ttWon: document.getElementById('tt-won'),
+    ttRate: document.getElementById('tt-rate'),
   };
 
   const CONFETTI_COLORS = ['#ff6b6b', '#ffd93d', '#6bcB77', '#4d96ff', '#c77dff', '#ff922b'];
 
-  // --- Keyboard Layout ---
-  const KEYBOARD_ROWS = [
-    ['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'],
-    ['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'],
-    ['z', 'x', 'c', 'v', 'b', 'n', 'm']
-  ];
+  // --- Keyboard Layouts ---
+  const KEYBOARD_LAYOUTS = {
+    qwerty:  [
+      ['q','w','e','r','t','y','u','i','o','p'],
+      ['a','s','d','f','g','h','j','k','l'],
+      ['z','x','c','v','b','n','m']
+    ],
+    azerty: [
+      ['a','z','e','r','t','y','u','i','o','p'],
+      ['q','s','d','f','g','h','j','k','l','m'],
+      ['w','x','c','v','b','n']
+    ],
+    qwertz: [
+      ['q','w','e','r','t','z','u','i','o','p'],
+      ['a','s','d','f','g','h','j','k','l'],
+      ['y','x','c','v','b','n','m']
+    ],
+    dvorak: [
+      ['p','y','f','g','c','r','l'],
+      ['a','o','e','u','i','d','h','t','n','s'],
+      ['q','j','k','x','b','m','w','v','z']
+    ],
+    colemak: [
+      ['q','w','f','p','g','j','l','u','y'],
+      ['a','r','s','t','d','h','n','e','i','o'],
+      ['z','x','c','v','b','k','m']
+    ]
+  };
 
   // --- Initialization ---
   function init() {
-    settings = new Settings(rssService, game, onFeedsChanged);
+    settings = new Settings(rssService, game, onFeedsChanged, onLayoutChanged);
 
+    // Detect layout on first visit, then build keyboard
+    if (!localStorage.getItem('hangman_keyboard_layout')) {
+      detectKeyboardLayout().then(layout => {
+        localStorage.setItem('hangman_keyboard_layout', layout);
+        buildKeyboard();
+      });
+    }
     buildKeyboard();
     bindEvents();
     updateBottomBar();
@@ -111,6 +146,14 @@
       }
     });
 
+    // Stats tooltip
+    els.streakDisplay.addEventListener('click', (e) => {
+      e.stopPropagation();
+      toggleStatsTooltip();
+    });
+    document.addEventListener('click', () => {
+      els.statsTooltip.classList.add('hidden');
+    });
 
     // Physical keyboard
     document.addEventListener('keydown', (e) => {
@@ -123,12 +166,13 @@
 
   // --- Keyboard ---
   function buildKeyboard() {
-    els.keyboard.innerHTML = '';
+    const layoutKey = localStorage.getItem('hangman_keyboard_layout') || 'qwerty';
+    const rows = KEYBOARD_LAYOUTS[layoutKey] || KEYBOARD_LAYOUTS.qwerty;
 
-    KEYBOARD_ROWS.forEach(row => {
+    els.keyboard.innerHTML = '';
+    rows.forEach(row => {
       const rowEl = document.createElement('div');
       rowEl.className = 'keyboard-row';
-
       row.forEach(letter => {
         const btn = document.createElement('button');
         btn.className = 'key-btn';
@@ -137,9 +181,34 @@
         btn.addEventListener('click', () => handleGuess(letter));
         rowEl.appendChild(btn);
       });
-
       els.keyboard.appendChild(rowEl);
     });
+
+    // Re-apply current guess state to the new buttons
+    game.correctLetters.forEach(l => markKey(l, true));
+    game.wrongLetters.forEach(l => { if (!l.startsWith('_')) markKey(l, false); });
+    if (game.state !== 'playing') disableAllKeys();
+  }
+
+  function onLayoutChanged() {
+    buildKeyboard();
+  }
+
+  async function detectKeyboardLayout() {
+    // Try the Keyboard API first (Chrome/Edge)
+    if (navigator.keyboard && navigator.keyboard.getLayoutMap) {
+      try {
+        const map = await navigator.keyboard.getLayoutMap();
+        if (map.get('KeyQ') === 'a') return 'azerty';
+        if (map.get('KeyZ') === 'y') return 'qwertz';
+        return 'qwerty';
+      } catch (e) { /* fall through */ }
+    }
+    // Language-based fallback
+    const [locale] = (navigator.language || 'en').toLowerCase().split(/[-_]/);
+    if (locale === 'fr') return 'azerty';
+    if (['de', 'at', 'cs', 'sk', 'hu', 'hr', 'sl'].includes(locale)) return 'qwertz';
+    return 'qwerty';
   }
 
   function resetKeyboard() {
@@ -373,7 +442,8 @@
         span.dataset.wordIdx = wordIdx;
         span.dataset.charIdx = i;
 
-        if (!/[a-zA-Z\u00C0-\u024F]/.test(ch)) {
+        const norm = ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+        if (!/[a-zA-Z\u00C0-\u024F]/.test(ch) || !/^[a-z]$/.test(norm)) {
           span.className = 'letter-slot shown-letter';
           span.textContent = ch;
         } else {
@@ -574,6 +644,21 @@
 
     els.streakValue.classList.remove('streak-reset-out', 'streak-reset-in');
     els.streakValue.textContent = String(nextStreak);
+  }
+
+  function toggleStatsTooltip() {
+    const isHidden = els.statsTooltip.classList.contains('hidden');
+    if (isHidden) {
+      els.ttStreak.textContent = game.streak;
+      els.ttPlayed.textContent = game.gamesPlayed;
+      els.ttWon.textContent = game.gamesWon;
+      els.ttRate.textContent = game.gamesPlayed > 0
+        ? Math.round(game.gamesWon / game.gamesPlayed * 100) + '%'
+        : '—';
+      els.statsTooltip.classList.remove('hidden');
+    } else {
+      els.statsTooltip.classList.add('hidden');
+    }
   }
 
   function renderWrongBar() {
