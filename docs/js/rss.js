@@ -23,15 +23,20 @@ class RSSService {
 
   static get PRESET_FEEDS() {
     return [
-      { name: 'Reuters Top News', url: 'https://feeds.reuters.com/reuters/topNews', icon: '🌍' },
-      { name: 'BBC News', url: 'https://feeds.bbci.co.uk/news/rss.xml', icon: '📺' },
-      { name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml', icon: '📻' },
-      { name: 'CNN Top Stories', url: 'http://rss.cnn.com/rss/edition.rss', icon: '📰' },
-      { name: 'NY Times', url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml', icon: '🗞️' },
-      { name: 'The Guardian', url: 'https://www.theguardian.com/world/rss', icon: '🇬🇧' },
-      { name: 'TechCrunch', url: 'https://techcrunch.com/feed/', icon: '💻' },
-      { name: 'Ars Technica', url: 'https://feeds.arstechnica.com/arstechnica/index', icon: '🔬' },
-      { name: 'ESPN', url: 'https://www.espn.com/espn/rss/news', icon: '⚽' },
+      { name: 'VRT NWS', url: 'https://www.vrt.be/vrtnws/nl.rss.articles.xml', icon: '🇧🇪' },
+      { name: 'Science Daily', url: 'https://www.sciencedaily.com/rss/all.xml', icon: '🔬' },
+      { name: 'New Scientist', url: 'https://www.newscientist.com/feed/home/?cmpid=RSS%7CNSNS-Home', icon: '🧪' },
+      { name: 'Space.com', url: 'https://www.space.com/feeds.xml', icon: '🚀' },
+      { name: 'Nature', url: 'http://feeds.nature.com/nature/rss/current', icon: '🌿' },
+      { name: 'Science', url: 'https://www.science.org/rss/express.xml', icon: '⚗️' },
+      { name: 'Wired Ideas', url: 'https://www.wired.com/feed/category/ideas/latest/rss', icon: '💡' },
+      { name: 'Wired Science', url: 'https://www.wired.com/feed/category/science/latest/rss', icon: '🔭' },
+      { name: 'Nautilus', url: 'https://nautil.us/feed', icon: '🐚' },
+      { name: 'Quanta Magazine', url: 'http://www.quantamagazine.org/feed/', icon: '⚛️' },
+      { name: 'MIT News: Science & Society', url: 'https://news.mit.edu/rss/topic/science-technology-and-society', icon: '🎓' },
+      { name: 'MIT News: Research', url: 'https://news.mit.edu/rss/research', icon: '🎓' },
+      { name: 'Science Alert', url: 'https://www.sciencealert.com/rss', icon: '📡' },
+      { name: 'Singularity Hub', url: 'https://singularityhub.com/feed/', icon: '🤖' },
     ];
   }
 
