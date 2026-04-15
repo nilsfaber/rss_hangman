@@ -40,6 +40,7 @@ class Settings {
     this.allowSpecialCharsToggle = document.getElementById('allow-special-chars');
     this.proxyUrlInput = document.getElementById('proxy-url');
     this.proxyWarning = document.getElementById('proxy-warning');
+    this.storageWarning = document.getElementById('storage-warning');
     this.proxyInfoModal = document.getElementById('proxy-info-modal');
     this.btnProxyInfo = document.getElementById('btn-proxy-info');
     this.btnCloseProxyModal = document.getElementById('btn-close-proxy-modal');
@@ -194,6 +195,14 @@ class Settings {
     this.allowSpecialCharsToggle.checked = this.game.allowSpecialChars;
     this.proxyUrlInput.value = this.rss.proxyUrl || '';
     this._updateProxyWarning();
+    this._updateStorageWarning();
+  }
+
+  _updateStorageWarning() {
+    if (!navigator.storage || !navigator.storage.persisted) return;
+    navigator.storage.persisted().then(persisted => {
+      this.storageWarning.classList.toggle('hidden', persisted);
+    });
   }
 
   _renderFeeds() {

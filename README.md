@@ -45,7 +45,7 @@ A progressive web app where you guess letters to fill in the latest news headlin
 - **Installable** — Add to home screen on mobile for a standalone app experience.
 - **Offline Support** — Service worker caches the app shell. Play with cached headlines when offline.
 - **Responsive Design** — Adapts to any screen size and orientation: phones, tablets, desktops. Uses CSS Grid for landscape layout, `clamp()`, `dvh`, `env(safe-area-inset-*)`, and media queries.
-- **Game State Persistence** — In-progress games survive page refreshes (saved to sessionStorage). Stats, settings, and feeds persist across sessions (localStorage).
+- **Game State Persistence** — In-progress games survive page refreshes (saved to sessionStorage). Stats, settings, and feeds persist across sessions (localStorage). On startup the app requests the browser's [Persistent Storage API](https://developer.mozilla.org/en-US/docs/Web/API/StorageManager/persist) to prevent silent eviction; a warning is shown in Settings if the browser hasn't granted it.
 
 ### Anti-Cheat
 - Hidden letters use transparent text with `user-select: none` to prevent revealing answers by selecting text on mobile.

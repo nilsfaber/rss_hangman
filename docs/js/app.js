@@ -102,6 +102,11 @@
       }
     }
 
+    // Request persistent storage so the browser won't silently evict settings
+    if (navigator.storage && navigator.storage.persist) {
+      navigator.storage.persist();
+    }
+
     // Register service worker
     registerSW();
   }

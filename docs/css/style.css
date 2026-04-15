@@ -154,7 +154,7 @@
   border-color: #888;
 }
 [data-theme="epaper"] .toggle-slider {
-  border-color: rgba(0, 0, 0, 0.3);
+  border-color: #888 !important;
 }
 [data-theme="epaper"] .wrong-bar-segment {
   border: 1px solid #ccc;
@@ -186,10 +186,11 @@
   background: rgba(192, 39, 63, 0.12);
 }
 [data-theme="light"] .toggle-slider {
-  border-color: rgba(0, 0, 0, 0.2);
+  border-color: rgba(0, 0, 0, 0.25);
 }
 [data-theme="light"] .toggle-switch input:checked + .toggle-slider {
   background: rgba(192, 39, 63, 0.2);
+  border-color: var(--accent);
 }
 [data-theme="light"] .word-slot {
   border-color: rgba(192, 39, 63, 0.5);
@@ -227,7 +228,7 @@
   border-color: #2a2a4a;
 }
 .theme-btn[data-theme="dark"]:hover  { background: #252545; }
-.theme-btn[data-theme="dark"].active { border-color: var(--accent); }
+.theme-btn[data-theme="dark"].active { border-color: #e94560; }
 
 /* Light button — always light */
 .theme-btn[data-theme="light"] {
@@ -236,7 +237,7 @@
   border-color: #c4c8d4;
 }
 .theme-btn[data-theme="light"]:hover  { background: #cdd0dc; }
-.theme-btn[data-theme="light"].active { border-color: var(--accent); }
+.theme-btn[data-theme="light"].active { border-color: #c0273f; }
 
 /* E-paper button — always white with border */
 .theme-btn[data-theme="epaper"] {
@@ -245,7 +246,7 @@
   border-color: #cccccc;
 }
 .theme-btn[data-theme="epaper"]:hover  { background: #f4f4f4; }
-.theme-btn[data-theme="epaper"].active { border-color: var(--accent); }
+.theme-btn[data-theme="epaper"].active { border-color: #111111; }
 
 /* --- Reset & Base --- */
 *, *::before, *::after {
@@ -468,9 +469,9 @@ body {
 
 .letter-slot.hidden-letter.lost-reveal {
   color: var(--key-wrong);
-  background: rgba(255, 71, 87, 0.1);
+  background: rgba(255, 0, 21, 0.1);
   border-bottom-color: var(--key-wrong);
-}
+  }
 
 .letter-slot.shown-letter {
   color: var(--text-secondary);
@@ -536,18 +537,18 @@ body {
 
 .key-btn:disabled {
   cursor: default;
-  opacity: 0.5;
+  opacity: 0.75;
 }
 
 .key-btn.correct {
   background: var(--key-correct);
-  color: #1a1a2e;
+  color: #fff;
 }
 
 .key-btn.wrong {
   background: var(--key-wrong);
-  color: #fff;
-  opacity: 0.6;
+  color: #ffffff81;
+  opacity: 0.4;
 }
 
 /* Inline Result (Win/Lose) */
@@ -1295,7 +1296,7 @@ body {
   cursor: pointer;
   inset: 0;
   background: var(--bg-surface);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 24px;
   transition: background 0.2s, border-color 0.2s;
 }
@@ -1315,11 +1316,12 @@ body {
 
 .toggle-switch input:checked + .toggle-slider {
   background: rgba(233, 69, 96, 0.2);
+  border-color: var(--accent);
 }
 
 .toggle-switch input:checked + .toggle-slider::before {
   transform: translateY(-50%) translateX(20px);
-  background: var(--text-primary);
+  background: var(--accent);
 }
 
 /* Info button */
@@ -1736,7 +1738,7 @@ body {
 }
 .feed-enable-toggle input:checked + .toggle-slider::before {
   transform: translateY(-50%) translateX(16px);
-  
+  background: #fff;
 }
 
 /* Randomisation control */

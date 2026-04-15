@@ -3,7 +3,7 @@
  * Caches app shell for offline use, network-first for external requests.
  */
 
-const CACHE_NAME = 'rss-hangman-v77';
+const CACHE_NAME = 'rss-hangman-v78';
 const APP_SHELL = [
   './',
   'index.html',
